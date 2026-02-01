@@ -1,0 +1,11 @@
+{
+  "debugMode": false,
+  "autoSaveIntervalMinutes": 5,
+  "defaultZoneMode": "block",
+  "bypassPermission": "hyperspawns.bypass",
+  "wandItemId": "hytale:stick",
+  "particlesEnabled": true,
+  "particleViewDistance": 32,
+  "globalSpawnMultiplier": 1.0,
+  "globalSpawnPaused": false
+}

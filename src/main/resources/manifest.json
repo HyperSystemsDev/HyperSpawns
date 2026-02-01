@@ -1,0 +1,9 @@
+{
+  "Group": "dev.hypersystems.hyperspawns",
+  "Name": "HyperSpawns",
+  "Version": "${version}",
+  "Description": "A comprehensive mob spawning control plugin for Hytale with named zones, customizable boundaries, spawn control modes, and filtering options.",
+  "Website": "https://github.com/HyperSystemsDev/HyperSpawns",
+  "Main": "dev.hypersystems.hyperspawns.HyperSpawnsPlugin",
+  "ServerVersion": "*"
+}
