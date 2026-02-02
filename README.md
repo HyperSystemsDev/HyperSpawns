@@ -18,6 +18,22 @@ A comprehensive Hytale server mod for controlling mob spawning through named zon
 - **Auto-save** - Automatic periodic saving of zone data
 - **Global Controls** - Server-wide spawn rate multiplier and pause functionality
 
+## How It Works
+
+HyperSpawns integrates directly with Hytale's native spawn suppression system through the `ChunkSuppressionIntegrator`. When you create a zone with BLOCK or DENY mode, the plugin:
+
+1. **Calculates affected chunks** - Determines which chunks intersect with the zone boundary
+2. **Creates suppression entries** - Adds `ChunkSuppressionEntry` components to each affected chunk
+3. **Registers suppressed roles** - For BLOCK mode, all NPC roles are suppressed; for DENY mode, only filtered roles are suppressed
+4. **Updates loaded chunks** - Queues updates for already-loaded chunks so changes take effect immediately
+
+This approach is highly efficient because:
+- Spawn checks are handled by Hytale's native spawning system (no event listeners)
+- Chunk-based indexing means O(1) lookups regardless of zone count
+- Suppression data is maintained per-chunk, not per-spawn-attempt
+
+> **Important:** Zones only affect the world they're created in. The zone's world name must exactly match the server's world name for spawns to be blocked.
+
 ## Installation
 
 1. Build the plugin:
@@ -32,6 +48,41 @@ A comprehensive Hytale server mod for controlling mob spawning through named zon
 
 3. Start your Hytale server
 
+4. **Verify installation:**
+   ```
+   /hyperspawns stats
+   ```
+   You should see version information and zone statistics.
+
+## Quick Start
+
+### Block all spawns near spawn point
+
+```
+# Set the first corner
+/hyperspawns pos1 -100 0 -100
+
+# Set the second corner
+/hyperspawns pos2 100 256 100
+
+# Create the zone
+/hyperspawns zone create spawn_protection cuboid
+
+# Set mode to BLOCK
+/hyperspawns zone mode spawn_protection BLOCK
+```
+
+### Create a sphere zone
+
+```
+# Option 1: Using pos1 as center
+/hyperspawns pos1 0 64 0
+/hyperspawns sphere safe_zone 50
+
+# Option 2: Specify coordinates directly
+/hyperspawns sphere safe_zone 50 0 64 0
+```
+
 ## Commands
 
 ### Main Command
@@ -41,32 +92,16 @@ A comprehensive Hytale server mod for controlling mob spawning through named zon
 
 | Command | Description |
 |---------|-------------|
-| `/hyperspawns zone create <name> [cuboid\|sphere\|cylinder]` | Create a new zone from wand selection |
+| `/hyperspawns zone create <name> [cuboid\|sphere\|cylinder]` | Create a new zone from selection |
 | `/hyperspawns zone delete <name>` | Delete a zone |
 | `/hyperspawns zone list [page]` | List all zones |
 | `/hyperspawns zone info <name>` | Show detailed zone information |
-| `/hyperspawns zone redefine <name>` | Update zone boundary from wand selection |
+| `/hyperspawns zone redefine <name>` | Update zone boundary from selection |
 | `/hyperspawns zone mode <name> <mode>` | Set zone spawn control mode |
 | `/hyperspawns zone multiplier <name> <0.0-10.0>` | Set spawn rate multiplier (MODIFY mode) |
 | `/hyperspawns zone priority <name> <number>` | Set zone priority |
 | `/hyperspawns zone enable <name>` | Enable a zone |
 | `/hyperspawns zone disable <name>` | Disable a zone |
-
-### Zone Filtering
-
-| Command | Description |
-|---------|-------------|
-| `/hyperspawns zone filter <name> add <type> <value>` | Add filter criteria |
-| `/hyperspawns zone filter <name> remove <type> <value>` | Remove filter criteria |
-| `/hyperspawns zone filter <name> clear` | Clear all filter criteria |
-
-**Filter Types:**
-- `group` - NPCGroup ID
-- `role` - Specific NPC role
-- `time` - Time of day (day, night, dawn, dusk)
-- `moon` - Moon phase (0-7)
-- `minlight` / `maxlight` - Light level range (0-15)
-- `miny` / `maxy` - Y level range
 
 ### Global Controls
 
@@ -81,9 +116,11 @@ A comprehensive Hytale server mod for controlling mob spawning through named zon
 
 | Command | Description |
 |---------|-------------|
-| `/hyperspawns wand` | Get information about the selection wand |
-| `/hyperspawns pos1` | Set selection position 1 at current location |
-| `/hyperspawns pos2` | Set selection position 2 at current location |
+| `/hyperspawns wand` | Get selection wand information |
+| `/hyperspawns wandmode` | Toggle wand selection mode (click to select) |
+| `/hyperspawns pos1 <x> <y> <z> [world]` | Set selection position 1 |
+| `/hyperspawns pos2 <x> <y> <z> [world]` | Set selection position 2 |
+| `/hyperspawns sphere <name> <radius> [x y z] [world]` | Create sphere zone directly |
 | `/hyperspawns reload` | Reload configuration and zones |
 | `/hyperspawns stats` | View spawn zone statistics |
 | `/hyperspawns debug [on\|off]` | Toggle debug mode |
@@ -122,67 +159,34 @@ Configuration is stored in `config.json`:
 }
 ```
 
-## Zone Data
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration reference.
 
-Zones are stored in `zones.json`:
+## Troubleshooting
 
-```json
-{
-  "schemaVersion": 1,
-  "lastSaved": 1704067200000,
-  "zones": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "name": "spawn_protection",
-      "world": "world",
-      "boundary": {
-        "type": "cuboid",
-        "minX": -100, "minY": 0, "minZ": -100,
-        "maxX": 100, "maxY": 319, "maxZ": 100
-      },
-      "mode": "block",
-      "filter": {},
-      "priority": 10,
-      "enabled": true,
-      "spawnRateMultiplier": 1.0
-    }
-  ]
-}
-```
+### Zone not blocking spawns?
 
-## Usage Examples
+1. **Check the world name** - Use `/hyperspawns zone info <name>` and verify the world name matches your server's world exactly
+2. **Verify the mode** - Ensure the zone mode is set to `BLOCK` or `DENY` (not `ALLOW`, `MODIFY`, or `REPLACE`)
+3. **Check if enabled** - Make sure the zone is enabled with `/hyperspawns zone enable <name>`
+4. **Enable debug mode** - Run `/hyperspawns debug on` and check console logs for suppression details
+5. **Reload the plugin** - Run `/hyperspawns reload` to re-apply all zone suppressions
 
-### Block all spawns near spawn point
-```
-/hyperspawns pos1
-# Walk to opposite corner
-/hyperspawns pos2
-/hyperspawns zone create spawn_protection cuboid
-/hyperspawns zone mode spawn_protection BLOCK
-```
+### Mobs still appearing in zone?
 
-### Create a hostile-only dungeon zone
-```
-/hyperspawns zone create dungeon cuboid
-/hyperspawns zone mode dungeon ALLOW
-/hyperspawns zone filter dungeon add group hostile
-/hyperspawns zone multiplier dungeon 2.0
-```
+- Existing mobs are not removed when a zone is created; only new spawns are blocked
+- Some mobs may wander into the zone from outside
+- Check chunk boundaries - zones affect entire chunks, but the boundary check is per-block
 
-### Prevent zombie spawns in a village
-```
-/hyperspawns zone create village sphere
-/hyperspawns zone mode village DENY
-/hyperspawns zone filter village add role zombie
-```
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more detailed troubleshooting.
 
-### Create a night-only spawn boost zone
-```
-/hyperspawns zone create night_zone cuboid
-/hyperspawns zone mode night_zone MODIFY
-/hyperspawns zone filter night_zone add time night
-/hyperspawns zone multiplier night_zone 1.5
-```
+## Documentation
+
+- [Admin Guide](docs/ADMIN-GUIDE.md) - Complete server administrator guide
+- [Commands Reference](docs/COMMANDS.md) - Detailed command documentation
+- [Configuration](docs/CONFIGURATION.md) - All configuration options
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Mob Spawning](docs/MOB-SPAWNING.md) - How Hytale mob spawning works
+- [Architecture](docs/ARCHITECTURE.md) - Technical documentation for developers
 
 ## Building from Source
 
@@ -208,4 +212,4 @@ Requirements:
 
 ## License
 
-Copyright © 2024 HyperSystems. All rights reserved.
+Copyright (c) 2025 HyperSystems. All rights reserved.
