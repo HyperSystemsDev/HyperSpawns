@@ -46,6 +46,8 @@ public class HyperSpawnsCommand extends AbstractCommand {
         addSubCommand(new ReloadSubCommand());
         addSubCommand(new StatsSubCommand());
         addSubCommand(new DebugSubCommand());
+        addSubCommand(new SphereSubCommand());
+        addSubCommand(new WandModeSubCommand());
         
         // Add aliases
         addAliases("hspawn", "spawns", "hs");
@@ -78,6 +80,10 @@ public class HyperSpawnsCommand extends AbstractCommand {
         parts.add(Message.raw(" - Get selection wand\n").color(GRAY));
         parts.add(Message.raw("    pos1/pos2").color(GREEN));
         parts.add(Message.raw(" - Set selection positions\n").color(GRAY));
+        parts.add(Message.raw("    sphere").color(GREEN));
+        parts.add(Message.raw(" - Create a spherical zone\n").color(GRAY));
+        parts.add(Message.raw("    wandmode").color(GREEN));
+        parts.add(Message.raw(" - Toggle wand selection mode\n").color(GRAY));
         parts.add(Message.raw("    reload").color(GREEN));
         parts.add(Message.raw(" - Reload configuration\n").color(GRAY));
         parts.add(Message.raw("    stats").color(GREEN));
@@ -841,6 +847,142 @@ public class HyperSpawnsCommand extends AbstractCommand {
             
             config.save();
             sendSuccess(ctx, "Debug mode " + (config.isDebugMode() ? "enabled" : "disabled"));
+            
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+    
+    // ========== Sphere Subcommand ==========
+    
+    private class SphereSubCommand extends AbstractCommand {
+        private final RequiredArg<String> nameArg;
+        private final RequiredArg<Double> radiusArg;
+        private final OptionalArg<Double> xArg;
+        private final OptionalArg<Double> yArg;
+        private final OptionalArg<Double> zArg;
+        private final OptionalArg<String> worldArg;
+        
+        public SphereSubCommand() {
+            super("sphere", "Create a spherical spawn zone");
+            this.nameArg = withRequiredArg("name", "Zone name", ArgTypes.STRING);
+            this.radiusArg = withRequiredArg("radius", "Sphere radius", ArgTypes.DOUBLE);
+            this.xArg = withOptionalArg("x", "Center X coordinate", ArgTypes.DOUBLE);
+            this.yArg = withOptionalArg("y", "Center Y coordinate", ArgTypes.DOUBLE);
+            this.zArg = withOptionalArg("z", "Center Z coordinate", ArgTypes.DOUBLE);
+            this.worldArg = withOptionalArg("world", "World name", ArgTypes.STRING);
+        }
+        
+        @Override
+        protected CompletableFuture<Void> execute(CommandContext ctx) {
+            String name = ctx.get(nameArg);
+            double radius = ctx.get(radiusArg);
+            Double x = ctx.get(xArg);
+            Double y = ctx.get(yArg);
+            Double z = ctx.get(zArg);
+            String worldName = ctx.get(worldArg);
+            
+            // Validate radius
+            if (radius <= 0) {
+                sendError(ctx, "Radius must be positive");
+                return CompletableFuture.completedFuture(null);
+            }
+            
+            SpawnZoneManager manager = HyperSpawns.get().getZoneManager();
+            WandSelectionManager wandManager = HyperSpawns.get().getWandManager();
+            
+            if (manager.zoneExists(name)) {
+                sendError(ctx, "A zone named '" + name + "' already exists");
+                return CompletableFuture.completedFuture(null);
+            }
+            
+            // Get center position
+            double centerX, centerY, centerZ;
+            
+            if (x != null && y != null && z != null) {
+                // Use provided coordinates
+                centerX = x;
+                centerY = y;
+                centerZ = z;
+            } else {
+                // Try to use player's selection pos1 as center
+                Player player = getPlayer(ctx);
+                if (player == null) {
+                    sendError(ctx, "You must provide coordinates (x y z) or be a player with pos1 set");
+                    return CompletableFuture.completedFuture(null);
+                }
+                
+                WandSelectionManager.Selection selection = wandManager.getSelection(player.getUuid());
+                if (selection == null || !selection.isPos1Set()) {
+                    sendError(ctx, "Set center with '/hyperspawns pos1' or provide coordinates (x y z)");
+                    return CompletableFuture.completedFuture(null);
+                }
+                
+                centerX = selection.getPos1X();
+                centerY = selection.getPos1Y();
+                centerZ = selection.getPos1Z();
+                
+                // Get world from selection if not specified
+                if (worldName == null || worldName.isBlank()) {
+                    worldName = selection.getWorld();
+                }
+            }
+            
+            // Default world name if not specified
+            if (worldName == null || worldName.isBlank()) {
+                Player player = getPlayer(ctx);
+                if (player != null) {
+                    World playerWorld = player.getWorld();
+                    worldName = playerWorld != null ? playerWorld.getName() : "default";
+                } else {
+                    worldName = "default";
+                }
+            }
+            
+            // Create the sphere boundary
+            SphereBoundary boundary = new SphereBoundary(centerX, centerY, centerZ, radius);
+            
+            // Create the zone
+            SpawnZone zone = manager.createZone(name, worldName, boundary);
+            if (zone != null) {
+                zone.setMode(HyperSpawnsConfig.get().getDefaultZoneMode());
+                sendSuccess(ctx, String.format("Created sphere zone '%s' at (%.1f, %.1f, %.1f) with radius %.1f",
+                        name, centerX, centerY, centerZ, radius));
+            } else {
+                sendError(ctx, "Failed to create zone");
+            }
+            
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+    
+    // ========== WandMode Subcommand ==========
+    
+    private class WandModeSubCommand extends AbstractCommand {
+        public WandModeSubCommand() {
+            super("wandmode", "Toggle wand selection mode");
+        }
+        
+        @Override
+        protected CompletableFuture<Void> execute(CommandContext ctx) {
+            Player player = getPlayer(ctx);
+            if (player == null) {
+                sendError(ctx, "This command can only be used by players");
+                return CompletableFuture.completedFuture(null);
+            }
+            
+            var wandSystem = HyperSpawns.get().getWandInteractionSystem();
+            if (wandSystem == null) {
+                sendError(ctx, "Wand interaction system not available");
+                return CompletableFuture.completedFuture(null);
+            }
+            
+            boolean enabled = wandSystem.toggleWandMode(player.getUuid());
+            
+            if (enabled) {
+                sendSuccess(ctx, "Wand mode enabled. Left-click to set pos1, right-click to set pos2.");
+            } else {
+                sendSuccess(ctx, "Wand mode disabled.");
+            }
             
             return CompletableFuture.completedFuture(null);
         }

@@ -5,12 +5,15 @@ import com.hypixel.hytale.builtin.tagset.config.NPCGroup;
 import dev.hypersystems.hyperspawns.command.WandSelectionManager;
 import dev.hypersystems.hyperspawns.config.HyperSpawnsConfig;
 import dev.hypersystems.hyperspawns.persistence.ZonePersistence;
+import dev.hypersystems.hyperspawns.system.HostileMobRemovalSystem;
 import dev.hypersystems.hyperspawns.system.SpawnZoneCheckerSystem;
 import dev.hypersystems.hyperspawns.system.SpawnZoneSuppressionResource;
+import dev.hypersystems.hyperspawns.system.WandInteractionSystem;
 import dev.hypersystems.hyperspawns.util.Logger;
 import dev.hypersystems.hyperspawns.zone.SpawnZone;
 import dev.hypersystems.hyperspawns.zone.SpawnZoneManager;
 import dev.hypersystems.hyperspawns.zone.ZoneFilter;
+import dev.hypersystems.hyperspawns.zone.ZoneMode;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -34,6 +37,8 @@ public final class HyperSpawns {
     private final SpawnZoneManager zoneManager;
     private final ZonePersistence persistence;
     private final WandSelectionManager wandManager;
+    private final WandInteractionSystem wandInteractionSystem;
+    private final HostileMobRemovalSystem mobRemovalSystem;
     private final Map<String, SpawnZoneCheckerSystem> worldSystems;
     
     private ScheduledExecutorService autoSaveExecutor;
@@ -44,6 +49,8 @@ public final class HyperSpawns {
         this.zoneManager = new SpawnZoneManager();
         this.persistence = new ZonePersistence(dataFolder);
         this.wandManager = new WandSelectionManager();
+        this.wandInteractionSystem = new WandInteractionSystem();
+        this.mobRemovalSystem = new HostileMobRemovalSystem(zoneManager);
         this.worldSystems = new ConcurrentHashMap<>();
     }
     
@@ -94,12 +101,19 @@ public final class HyperSpawns {
         
         // Load zones from file
         zoneManager.loadZones(persistence.loadZones());
-        
+
         // Compile filters
         compileAllFilters();
-        
+
         // Set up zone change listener
         zoneManager.setChangeListener(this::onZoneChanged);
+
+        // Rebuild all world systems with loaded zones
+        // This ensures zones are applied after they're loaded from disk
+        rebuildAllWorldSystems();
+
+        // Start the hostile mob removal system
+        mobRemovalSystem.start();
         
         // Start auto-save
         startAutoSave();
@@ -117,6 +131,9 @@ public final class HyperSpawns {
         }
         
         Logger.info("Stopping HyperSpawns...");
+        
+        // Stop the hostile mob removal system
+        mobRemovalSystem.stop();
         
         // Stop auto-save
         stopAutoSave();
@@ -146,6 +163,9 @@ public final class HyperSpawns {
         
         // Rebuild all world systems
         rebuildAllWorldSystems();
+        
+        // Clear mob removal cache
+        mobRemovalSystem.clearCache();
         
         // Restart auto-save with new interval
         stopAutoSave();
@@ -187,6 +207,22 @@ public final class HyperSpawns {
     @NotNull
     public WandSelectionManager getWandManager() {
         return wandManager;
+    }
+    
+    /**
+     * Get the wand interaction system.
+     */
+    @NotNull
+    public WandInteractionSystem getWandInteractionSystem() {
+        return wandInteractionSystem;
+    }
+    
+    /**
+     * Get the hostile mob removal system.
+     */
+    @NotNull
+    public HostileMobRemovalSystem getMobRemovalSystem() {
+        return mobRemovalSystem;
     }
     
     /**
@@ -324,6 +360,11 @@ public final class HyperSpawns {
         
         // Rebuild the affected world's suppression data
         rebuildWorldSuppression(zone.getWorld());
+        
+        // If zone is now in BLOCK mode and enabled, remove existing hostile mobs
+        if (zone.getMode() == ZoneMode.BLOCK && zone.isEnabled()) {
+            mobRemovalSystem.removeHostileMobsFromZone(zone);
+        }
     }
     
     private void startAutoSave() {
