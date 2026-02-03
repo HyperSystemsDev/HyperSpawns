@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Join the HyperSystems Discord
+    url: https://discord.gg/SNPjyfkYPc
+    about: Come and chat with other players and the HyperSystems team!
+  - name: HyperSystems Website
+    url: https://hypersystems.dev
+    about: Visit our website for more information about HyperSystems.
+  - name: HyperSpawns Documentation
+    url: https://hypersystems.dev/wiki/hyperspawns
+    about: Find guides and documentation for HyperSpawns.

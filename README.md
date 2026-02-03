@@ -1,8 +1,23 @@
 # HyperSpawns
 
-A comprehensive Hytale server mod for controlling mob spawning through named zones with customizable boundaries, spawn control modes, and filtering options.
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?logo=discord&logoColor=white)](https://discord.gg/SNPjyfkYPc)
+[![GitHub](https://img.shields.io/github/stars/HyperSystemsDev/HyperSpawns?style=social)](https://github.com/HyperSystemsDev/HyperSpawns)
 
-## Features
+A comprehensive Hytale server mod for controlling mob spawning through named zones with customizable boundaries, spawn control modes, and filtering options. Part of the **HyperSystems** plugin suite.
+
+**Version:** 1.0.0
+**Game:** Hytale Early Access
+**License:** GPLv3
+
+---
+
+## Overview
+
+HyperSpawns integrates directly with Hytale's native spawn suppression system to control mob spawning through named zones. Create zones with customizable boundaries (cuboid, sphere, cylinder), set spawn control modes (block, allow, deny, modify, replace), and use advanced filtering by NPC type, light level, Y level, and more.
+
+---
+
+## Key Features
 
 - **Named Spawn Zones** - Create and manage named zones with unique identifiers
 - **Multiple Boundary Types** - Support for cuboid, sphere, and cylinder boundaries
@@ -18,21 +33,7 @@ A comprehensive Hytale server mod for controlling mob spawning through named zon
 - **Auto-save** - Automatic periodic saving of zone data
 - **Global Controls** - Server-wide spawn rate multiplier and pause functionality
 
-## How It Works
-
-HyperSpawns integrates directly with Hytale's native spawn suppression system through the `ChunkSuppressionIntegrator`. When you create a zone with BLOCK or DENY mode, the plugin:
-
-1. **Calculates affected chunks** - Determines which chunks intersect with the zone boundary
-2. **Creates suppression entries** - Adds `ChunkSuppressionEntry` components to each affected chunk
-3. **Registers suppressed roles** - For BLOCK mode, all NPC roles are suppressed; for DENY mode, only filtered roles are suppressed
-4. **Updates loaded chunks** - Queues updates for already-loaded chunks so changes take effect immediately
-
-This approach is highly efficient because:
-- Spawn checks are handled by Hytale's native spawning system (no event listeners)
-- Chunk-based indexing means O(1) lookups regardless of zone count
-- Suppression data is maintained per-chunk, not per-spawn-attempt
-
-> **Important:** Zones only affect the world they're created in. The zone's world name must exactly match the server's world name for spawns to be blocked.
+---
 
 ## Installation
 
@@ -48,102 +49,97 @@ This approach is highly efficient because:
 
 3. Start your Hytale server
 
-4. **Verify installation:**
+4. Verify installation:
    ```
    /hyperspawns stats
    ```
-   You should see version information and zone statistics.
+
+---
 
 ## Quick Start
 
 ### Block all spawns near spawn point
 
 ```
-# Set the first corner
 /hyperspawns pos1 -100 0 -100
-
-# Set the second corner
 /hyperspawns pos2 100 256 100
-
-# Create the zone
 /hyperspawns zone create spawn_protection cuboid
-
-# Set mode to BLOCK
 /hyperspawns zone mode spawn_protection BLOCK
 ```
 
 ### Create a sphere zone
 
 ```
-# Option 1: Using pos1 as center
 /hyperspawns pos1 0 64 0
 /hyperspawns sphere safe_zone 50
-
-# Option 2: Specify coordinates directly
-/hyperspawns sphere safe_zone 50 0 64 0
 ```
+
+---
 
 ## Commands
 
-### Main Command
-`/hyperspawns` (aliases: `/hspawn`, `/spawns`, `/hs`)
+Main command: `/hyperspawns` (aliases: `/hspawn`, `/spawns`, `/hs`)
 
 ### Zone Management
 
-| Command | Description |
-|---------|-------------|
-| `/hyperspawns zone create <name> [cuboid\|sphere\|cylinder]` | Create a new zone from selection |
-| `/hyperspawns zone delete <name>` | Delete a zone |
-| `/hyperspawns zone list [page]` | List all zones |
-| `/hyperspawns zone info <name>` | Show detailed zone information |
-| `/hyperspawns zone redefine <name>` | Update zone boundary from selection |
-| `/hyperspawns zone mode <name> <mode>` | Set zone spawn control mode |
-| `/hyperspawns zone multiplier <name> <0.0-10.0>` | Set spawn rate multiplier (MODIFY mode) |
-| `/hyperspawns zone priority <name> <number>` | Set zone priority |
-| `/hyperspawns zone enable <name>` | Enable a zone |
-| `/hyperspawns zone disable <name>` | Disable a zone |
+| Command | Description | Permission |
+|---------|-------------|------------|
+| `/hyperspawns zone create <name> [type]` | Create a new zone from selection | `hyperspawns.zone.create` |
+| `/hyperspawns zone delete <name>` | Delete a zone | `hyperspawns.zone.delete` |
+| `/hyperspawns zone list [page]` | List all zones | `hyperspawns.zone.list` |
+| `/hyperspawns zone info <name>` | Show detailed zone information | `hyperspawns.zone.list` |
+| `/hyperspawns zone redefine <name>` | Update zone boundary from selection | `hyperspawns.zone.modify` |
+| `/hyperspawns zone mode <name> <mode>` | Set zone spawn control mode | `hyperspawns.zone.modify` |
+| `/hyperspawns zone multiplier <name> <0.0-10.0>` | Set spawn rate multiplier | `hyperspawns.zone.modify` |
+| `/hyperspawns zone priority <name> <number>` | Set zone priority | `hyperspawns.zone.modify` |
+| `/hyperspawns zone enable <name>` | Enable a zone | `hyperspawns.zone.modify` |
+| `/hyperspawns zone disable <name>` | Disable a zone | `hyperspawns.zone.modify` |
 
 ### Global Controls
 
-| Command | Description |
-|---------|-------------|
-| `/hyperspawns global` | Show global spawn settings |
-| `/hyperspawns global multiplier <0.0-10.0>` | Set global spawn rate multiplier |
-| `/hyperspawns global pause` | Pause all mob spawning server-wide |
-| `/hyperspawns global resume` | Resume mob spawning |
+| Command | Description | Permission |
+|---------|-------------|------------|
+| `/hyperspawns global` | Show global spawn settings | `hyperspawns.global` |
+| `/hyperspawns global multiplier <0.0-10.0>` | Set global spawn rate multiplier | `hyperspawns.global` |
+| `/hyperspawns global pause` | Pause all mob spawning server-wide | `hyperspawns.global` |
+| `/hyperspawns global resume` | Resume mob spawning | `hyperspawns.global` |
 
 ### Selection & Utility
 
-| Command | Description |
-|---------|-------------|
-| `/hyperspawns wand` | Get selection wand information |
-| `/hyperspawns wandmode` | Toggle wand selection mode (click to select) |
-| `/hyperspawns pos1 <x> <y> <z> [world]` | Set selection position 1 |
-| `/hyperspawns pos2 <x> <y> <z> [world]` | Set selection position 2 |
-| `/hyperspawns sphere <name> <radius> [x y z] [world]` | Create sphere zone directly |
-| `/hyperspawns reload` | Reload configuration and zones |
-| `/hyperspawns stats` | View spawn zone statistics |
-| `/hyperspawns debug [on\|off]` | Toggle debug mode |
+| Command | Description | Permission |
+|---------|-------------|------------|
+| `/hyperspawns wand` | Get selection wand information | `hyperspawns.wand` |
+| `/hyperspawns wandmode` | Toggle wand selection mode | `hyperspawns.wand` |
+| `/hyperspawns pos1 <x> <y> <z> [world]` | Set selection position 1 | `hyperspawns.wand` |
+| `/hyperspawns pos2 <x> <y> <z> [world]` | Set selection position 2 | `hyperspawns.wand` |
+| `/hyperspawns sphere <name> <radius> [x y z]` | Create sphere zone directly | `hyperspawns.zone.create` |
+| `/hyperspawns reload` | Reload configuration and zones | `hyperspawns.reload` |
+| `/hyperspawns stats` | View spawn zone statistics | `hyperspawns.stats` |
+| `/hyperspawns debug [on\|off]` | Toggle debug mode | `hyperspawns.debug` |
+
+---
 
 ## Permissions
 
-| Permission | Description |
-|------------|-------------|
-| `hyperspawns.admin` | Full access (wildcard) |
-| `hyperspawns.zone.create` | Create zones |
-| `hyperspawns.zone.delete` | Delete zones |
-| `hyperspawns.zone.modify` | Modify zone settings |
-| `hyperspawns.zone.list` | List zones |
-| `hyperspawns.global` | Global spawn controls |
-| `hyperspawns.wand` | Use selection wand |
-| `hyperspawns.reload` | Reload configuration |
-| `hyperspawns.stats` | View spawn statistics |
-| `hyperspawns.debug` | Toggle debug mode |
-| `hyperspawns.bypass` | Bypass all zone restrictions |
+| Permission | Description | Default |
+|------------|-------------|---------|
+| `hyperspawns.admin` | Full access (wildcard) | op |
+| `hyperspawns.zone.create` | Create zones | op |
+| `hyperspawns.zone.delete` | Delete zones | op |
+| `hyperspawns.zone.modify` | Modify zone settings | op |
+| `hyperspawns.zone.list` | List zones | op |
+| `hyperspawns.global` | Global spawn controls | op |
+| `hyperspawns.wand` | Use selection wand | op |
+| `hyperspawns.reload` | Reload configuration | op |
+| `hyperspawns.stats` | View spawn statistics | op |
+| `hyperspawns.debug` | Toggle debug mode | op |
+| `hyperspawns.bypass` | Bypass all zone restrictions | op |
+
+---
 
 ## Configuration
 
-Configuration is stored in `config.json`:
+Configuration file: `mods/com.hyperspawns_HyperSpawns/config.json`
 
 ```json
 {
@@ -161,55 +157,68 @@ Configuration is stored in `config.json`:
 
 See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for detailed configuration reference.
 
-## Troubleshooting
+---
 
-### Zone not blocking spawns?
+## How It Works
 
-1. **Check the world name** - Use `/hyperspawns zone info <name>` and verify the world name matches your server's world exactly
-2. **Verify the mode** - Ensure the zone mode is set to `BLOCK` or `DENY` (not `ALLOW`, `MODIFY`, or `REPLACE`)
-3. **Check if enabled** - Make sure the zone is enabled with `/hyperspawns zone enable <name>`
-4. **Enable debug mode** - Run `/hyperspawns debug on` and check console logs for suppression details
-5. **Reload the plugin** - Run `/hyperspawns reload` to re-apply all zone suppressions
+HyperSpawns integrates directly with Hytale's native spawn suppression system through the `ChunkSuppressionIntegrator`. When you create a zone with BLOCK or DENY mode:
 
-### Mobs still appearing in zone?
+1. **Calculates affected chunks** - Determines which chunks intersect with the zone boundary
+2. **Creates suppression entries** - Adds `ChunkSuppressionEntry` components to each affected chunk
+3. **Registers suppressed roles** - For BLOCK mode, all NPC roles are suppressed; for DENY mode, only filtered roles
+4. **Updates loaded chunks** - Queues updates for already-loaded chunks so changes take effect immediately
 
-- Existing mobs are not removed when a zone is created; only new spawns are blocked
-- Some mobs may wander into the zone from outside
-- Check chunk boundaries - zones affect entire chunks, but the boundary check is per-block
+This approach is highly efficient because spawn checks are handled by Hytale's native spawning system.
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for more detailed troubleshooting.
+---
 
 ## Documentation
 
-- [Admin Guide](docs/ADMIN-GUIDE.md) - Complete server administrator guide
-- [Commands Reference](docs/COMMANDS.md) - Detailed command documentation
-- [Configuration](docs/CONFIGURATION.md) - All configuration options
-- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
-- [Mob Spawning](docs/MOB-SPAWNING.md) - How Hytale mob spawning works
-- [Architecture](docs/ARCHITECTURE.md) - Technical documentation for developers
+| Document | Description |
+|----------|-------------|
+| [Admin Guide](docs/ADMIN-GUIDE.md) | Complete server administrator guide |
+| [Commands Reference](docs/COMMANDS.md) | Detailed command documentation |
+| [Configuration](docs/CONFIGURATION.md) | All configuration options |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Common issues and solutions |
+| [Mob Spawning](docs/MOB-SPAWNING.md) | How Hytale mob spawning works |
+| [Architecture](docs/ARCHITECTURE.md) | Technical documentation for developers |
+
+---
 
 ## Building from Source
 
-Requirements:
-- Java 25 (Temurin recommended)
-- Gradle 9.3+
+### Requirements
+
+- Java 21+ (for building)
+- Java 25 (for running on Hytale server)
+- Gradle 8.12+
+- Hytale Server (Early Access)
 
 ```bash
-# Build
 ./gradlew shadowJar
-
-# Clean build
-./gradlew clean shadowJar
-
-# Development build
-./gradlew buildDev
 ```
+
+The output JAR will be in `build/libs/`.
+
+---
 
 ## Support
 
-- Discord: https://discord.gg/SNPjyfkYPc
-- GitHub: https://github.com/HyperSystemsDev/HyperSpawns
+- **Discord:** https://discord.gg/SNPjyfkYPc
+- **GitHub Issues:** https://github.com/HyperSystemsDev/HyperSpawns/issues
 
-## License
+---
 
-Copyright (c) 2025 HyperSystems. All rights reserved.
+## Credits
+
+Developed by **HyperSystemsDev**
+
+Part of the **HyperSystems** plugin suite:
+- [HyperPerms](https://github.com/HyperSystemsDev/HyperPerms) - Advanced permissions
+- [HyperHomes](https://github.com/HyperSystemsDev/HyperHomes) - Home teleportation
+- [HyperFactions](https://github.com/HyperSystemsDev/HyperFactions) - Faction management
+- [HyperWarp](https://github.com/HyperSystemsDev/HyperWarp) - Warps, spawns, TPA
+
+---
+
+*HyperSpawns - Control Every Creature*
